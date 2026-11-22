@@ -274,6 +274,9 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
     override fun onStart() {
         super.onStart()
+        latestLiveText = getSharedPreferences(LiveCaptureService.PREFS_NAME, MODE_PRIVATE)
+            .getString(LiveCaptureService.PREF_LATEST_TEXT, latestLiveText)
+            ?: latestLiveText
         val filter = IntentFilter(LiveCaptureService.ACTION_TEXT)
         if (Build.VERSION.SDK_INT >= 33) registerReceiver(liveReceiver, filter, RECEIVER_NOT_EXPORTED)
         else @Suppress("DEPRECATION") registerReceiver(liveReceiver, filter)
