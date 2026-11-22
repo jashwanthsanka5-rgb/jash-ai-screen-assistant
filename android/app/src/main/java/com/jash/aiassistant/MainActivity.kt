@@ -236,12 +236,28 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                                     colors = ButtonDefaults.buttonColors(containerColor = Violet)
                                 ) { Text(if (busy) "Working…" else "✦  Explain practice question", fontWeight = FontWeight.Bold) }
                                 if (answer.isNotBlank() || answerNote.isNotBlank()) {
-                                    Surface(color = Color(0xFF6D8FEA).copy(alpha = .16f), shape = RoundedCornerShape(24.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = .16f)), modifier = Modifier.fillMaxWidth()) {
-                                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
-                                            Text("JASH AI RESPONSE", color = Electric, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                                            if (answer.isNotBlank()) Text(answer, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                                            Text(answerNote, color = Muted, fontSize = 12.sp)
-                                            if (answer.isNotBlank()) TextButton(onClick = { tts?.speak(answer, TextToSpeech.QUEUE_FLUSH, null, "jash-answer") }) { Text("🔊 Read answer aloud") }
+                                    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Text("JASH AI CHAT", color = Color(0xFFBBD0FF), fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
+                                            Spacer(Modifier.weight(1f))
+                                            Text("LIQUID GLASS", color = Muted, fontSize = 9.sp)
+                                        }
+                                        if (question.isNotBlank()) {
+                                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                                                Surface(color = Color(0xFF4B79E5).copy(alpha = .30f), shape = RoundedCornerShape(20.dp, 5.dp, 20.dp, 20.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = .12f))) {
+                                                    Text(question, color = Color.White, modifier = Modifier.padding(13.dp), fontSize = 13.sp)
+                                                }
+                                            }
+                                        }
+                                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
+                                            Surface(color = Color(0xFF8DAAFF).copy(alpha = .15f), shape = RoundedCornerShape(5.dp, 20.dp, 20.dp, 20.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = .17f)), modifier = Modifier.fillMaxWidth(.94f)) {
+                                                Column(Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                                    Text("⚡  JASH AI", color = Color(0xFFBBD0FF), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                                    if (answer.isNotBlank()) Text(answer, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+                                                    Text(answerNote, color = Color(0xFFD3DEFA), fontSize = 12.sp)
+                                                    if (answer.isNotBlank()) TextButton(onClick = { tts?.speak(answer, TextToSpeech.QUEUE_FLUSH, null, "jash-answer") }) { Text("🔊  Read answer aloud") }
+                                                }
+                                            }
                                         }
                                     }
                                 }
