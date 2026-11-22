@@ -56,6 +56,30 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }
+                LaunchedEffect(Unit) {
+                    val sharedImage = if (intent?.action == Intent.ACTION_SEND && intent?.type?.startsWith("image/") == true) {
+                        @Suppress("DEPRECATION")
+                        intent?.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)
+                    } else null
+                    if (sharedImage != null) {
+                        busy = true
+                        try {
+                            recognizer.process(InputImage.fromFilePath(this@MainActivity, sharedImage))
+                                .addOnSuccessListener { result ->
+                                    question = result.text
+                                    answer = if (result.text.isBlank()) "No readable English text found. You can paste text manually." else "Shared image OCR complete. Review the extracted text before analyzing."
+                                    busy = false
+                                }
+                                .addOnFailureListener { e ->
+                                    answer = "Could not read shared image: ${e.localizedMessage ?: "unknown error"}"
+                                    busy = false
+                                }
+                        } catch (e: Exception) {
+                            answer = "Could not open shared image: ${e.localizedMessage ?: "unknown error"}"
+                            busy = false
+                        }
+                    }
+                }
                 Scaffold { padding ->
                     Column(
                         modifier = Modifier.padding(padding).fillMaxSize().padding(18.dp).verticalScroll(rememberScrollState()),
