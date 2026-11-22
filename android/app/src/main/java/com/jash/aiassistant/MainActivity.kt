@@ -1,6 +1,7 @@
 package com.jash.aiassistant
 
 import android.net.Uri
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -30,7 +31,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             MaterialTheme {
-                var question by remember { mutableStateOf("") }
+                var question by remember { mutableStateOf(intent?.getStringExtra(Intent.EXTRA_TEXT) ?: "") }
                 var apiBase by remember { mutableStateOf("http://10.0.2.2:8787") }
                 var answer by remember { mutableStateOf("Import a practice-question image or paste text below.") }
                 var busy by remember { mutableStateOf(false) }
@@ -60,9 +61,9 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier.padding(padding).fillMaxSize().padding(18.dp).verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Text("Jash AI Study Assistant", style = MaterialTheme.typography.headlineSmall)
-                        Text("English / Telugu practice mode", style = MaterialTheme.typography.titleMedium)
-                        Text("Use for your own practice, mock tests and authorized demonstrations.")
+                        Text("Jash AI Screen Assistant", style = MaterialTheme.typography.headlineSmall)
+                        Text("Ask about text and questions you choose to share", style = MaterialTheme.typography.titleMedium)
+                        Text("Import a screenshot, share selected text from another app, or paste a question. You control what is sent for analysis.")
                         OutlinedTextField(
                             value = apiBase, onValueChange = { apiBase = it.trimEnd('/') },
                             label = { Text("Backend URL") }, modifier = Modifier.fillMaxWidth(), singleLine = true
@@ -70,7 +71,7 @@ class MainActivity : ComponentActivity() {
                         OutlinedButton(onClick = { picker.launch("image/*") }, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
                             Text("Import question screenshot")
                         }
-                        Text("OCR currently recognizes printed English text. Telugu OCR requires a Telugu-capable OCR service; paste Telugu text manually for now.")
+                        Text("Current OCR supports printed English. Telugu text can be pasted or shared; Telugu-script image OCR is still being added.")
                         OutlinedTextField(
                             value = question, onValueChange = { question = it },
                             label = { Text("Practice question / OCR text") },
@@ -122,7 +123,7 @@ class MainActivity : ComponentActivity() {
                                 Text(answer)
                             }
                         }
-                        Text("No automatic exam-option selection or covert live-exam assistance. Always verify AI output.")
+                        Text("This version analyzes content you explicitly import or share. It does not silently monitor other apps. Always verify AI output.")
                     }
                 }
             }
