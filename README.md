@@ -1,24 +1,30 @@
-# Jash AI Study Assistant
+# Jash AI Screen Assistant
 
-A permission-based Android study helper for **practice questions, mock tests, and authorized classroom demonstrations**.
+An Android live screen-reading companion for accessibility, reading, and study support.
 
-## Current Android features
-- Import an image from the device's photo picker.
-- On-device ML Kit OCR for printed English text.
-- Review and edit extracted text before sending it.
-- Send a practice question to the backend and display answer, confidence, and verification note.
-- Configure the backend URL in the app.
-- English/Telugu text entry; Telugu can be pasted manually.
+## Live screen reader (new)
+- Starts Android MediaProjection after the user approves the system screen-sharing prompt.
+- Runs a visible foreground service and persistent Android notification while sharing.
+- Samples the shared display and performs on-device ML Kit OCR for printed English text.
+- Shows the latest recognized text in the app.
+- Two-finger tap on the in-app reader panel reads the latest recognized text aloud using Android Text-to-Speech.
+- Stop sharing from the app; no video file is created or saved.
 
-## Not yet implemented
-- Telugu-script OCR (the current bundled ML Kit recognizer is Latin-script only).
-- Floating overlay or MediaProjection screen capture.
-- Windows desktop client.
-- Production backend deployment and API-key configuration.
-- Signed release APK and physical-device QA.
+## Other features
+- Import a screenshot from the device photo picker.
+- Review and edit extracted text.
+- Share selected text or an image from another app.
+- English/Telugu manual text entry; Telugu-script image OCR is not yet supported.
 
-## Safe-use scope
-This app is for self-study, practice/mock tests, and demonstrations explicitly authorized by the institution. It is not designed for covert assistance during active graded exams, automatic exam-option selection, or bypassing proctoring.
+## Limitations
+- The live reader currently extracts printed English text only; it does not yet describe images or recognize Telugu script.
+- The two-finger read-aloud gesture currently works inside the app's reader panel, not as a global gesture over other apps.
+- Live mode is an OCR/text-reading feature. It does not provide automatic answers to questions detected across other apps.
+- The AI question-solving backend still requires deployment and a privately configured OPENAI_API_KEY.
+- A Windows companion is not implemented yet.
+
+## Privacy and permissions
+Screen capture starts only after the Android system permission prompt is accepted. Android displays its screen-sharing indicator and the app maintains an ongoing foreground notification. The service processes frames temporarily on-device for OCR; it does not save a screen recording. Stop sharing at any time from the app or Android system controls.
 
 ## Backend setup
 ```bash
@@ -28,10 +34,7 @@ cp .env.example .env
 # Set OPENAI_API_KEY locally; never commit secrets
 npm start
 ```
-The API listens on port 8787 by default. For Android Emulator, the default app backend URL `http://10.0.2.2:8787` points to the host machine. For a physical phone, use the computer's reachable LAN address or a deployed HTTPS backend.
+The API listens on port 8787 by default. For Android Emulator, `http://10.0.2.2:8787` points to the host machine. For a physical phone, use a reachable LAN address or a deployed HTTPS backend.
 
 ## Build Android debug APK
-Open `android/` in Android Studio with JDK 17 and Android SDK 35, or use the GitHub Actions workflow under Actions → Android APK → Run workflow. The artifact is named `jash-ai-screen-assistant-debug-apk`.
-
-## Release signing
-A production APK must be signed with a keystore controlled by the project owner. Do not commit keystores, passwords, or API keys. Add signing secrets only through a secure CI secret store.
+Open `android/` in Android Studio with JDK 17 and Android SDK 35, or use GitHub Actions → Android debug APK. The artifact is named `jash-ai-screen-assistant-debug-apk`.
