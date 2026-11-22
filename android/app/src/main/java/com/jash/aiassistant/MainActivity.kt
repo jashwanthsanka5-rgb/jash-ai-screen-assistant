@@ -85,7 +85,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                     onSurface = Color.White
                 )
             ) {
-                var backendUrl by remember { mutableStateOf("") }
+                var backendUrl by remember { mutableStateOf("https://jash-ai-screen-assistant-api.onrender.com") }
                 var question by remember { mutableStateOf("") }
                 var answer by remember { mutableStateOf("") }
                 var answerNote by remember { mutableStateOf("") }
@@ -236,8 +236,8 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                                     colors = ButtonDefaults.buttonColors(containerColor = Violet)
                                 ) { Text(if (busy) "Working…" else "✦  Explain practice question", fontWeight = FontWeight.Bold) }
                                 if (answer.isNotBlank() || answerNote.isNotBlank()) {
-                                    Surface(color = Color(0xFF202B4B), shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth()) {
-                                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                                    Surface(color = Color(0xFF6D8FEA).copy(alpha = .16f), shape = RoundedCornerShape(24.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = .16f)), modifier = Modifier.fillMaxWidth()) {
+                                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
                                             Text("JASH AI RESPONSE", color = Electric, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                                             if (answer.isNotBlank()) Text(answer, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                                             Text(answerNote, color = Muted, fontSize = 12.sp)
