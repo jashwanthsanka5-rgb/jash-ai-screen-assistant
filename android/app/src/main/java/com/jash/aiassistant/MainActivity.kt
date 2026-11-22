@@ -1,162 +1,144 @@
 package com.jash.aiassistant
 
-import android.net.Uri
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
+import android.media.projection.MediaProjectionManager
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.speech.tts.TextToSpeech
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
-import org.json.JSONObject
-import java.net.HttpURLConnection
-import java.net.URL
-import java.io.OutputStreamWriter
-import java.util.concurrent.Executors
+import java.util.Locale
 
-class MainActivity : ComponentActivity() {
-    private val worker = Executors.newSingleThreadExecutor()
+class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private val recognizer by lazy { TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS) }
+    private var tts: TextToSpeech? = null
+    private var latestLiveText by mutableStateOf("Start live sharing to read text visible on your screen.")
+    private var sharing by mutableStateOf(false)
+
+    private val liveReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            intent?.getStringExtra(LiveCaptureService.EXTRA_TEXT)?.let { latestLiveText = it }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        tts = TextToSpeech(this, this)
+        val projectionManager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+        val captureLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == RESULT_OK && result.data != null) {
+                val serviceIntent = Intent(this, LiveCaptureService::class.java).apply {
+                    putExtra(LiveCaptureService.EXTRA_RESULT_CODE, result.resultCode)
+                    putExtra(LiveCaptureService.EXTRA_RESULT_DATA, result.data)
+                }
+                if (Build.VERSION.SDK_INT >= 26) startForegroundService(serviceIntent) else startService(serviceIntent)
+                sharing = true
+            }
+        }
         setContent {
             MaterialTheme {
-                var question by remember { mutableStateOf(intent?.getStringExtra(Intent.EXTRA_TEXT) ?: "") }
-                var apiBase by remember { mutableStateOf("http://10.0.2.2:8787") }
-                var answer by remember { mutableStateOf("Import a practice-question image or paste text below.") }
-                var busy by remember { mutableStateOf(false) }
+                var importedText by remember { mutableStateOf(intent?.getStringExtra(Intent.EXTRA_TEXT) ?: "") }
+                var status by remember { mutableStateOf("Ready") }
                 val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
                     if (uri != null) {
-                        busy = true
+                        status = "Reading selected image…"
                         try {
-                            val image = InputImage.fromFilePath(this, uri)
-                            recognizer.process(image)
-                                .addOnSuccessListener { result ->
-                                    question = result.text
-                                    answer = if (result.text.isBlank()) "No readable English text found. You can paste Telugu text manually." else "OCR complete. Review the extracted text before analyzing."
-                                    busy = false
-                                }
-                                .addOnFailureListener { e ->
-                                    answer = "OCR failed: ${e.localizedMessage ?: "unknown error"}"
-                                    busy = false
-                                }
-                        } catch (e: Exception) {
-                            answer = "Could not open image: ${e.localizedMessage}"
-                            busy = false
-                        }
+                            recognizer.process(InputImage.fromFilePath(this, uri))
+                                .addOnSuccessListener { importedText = it.text; status = "Image text extracted. Review it below." }
+                                .addOnFailureListener { status = "Image OCR failed: ${it.localizedMessage}" }
+                        } catch (e: Exception) { status = "Could not open image: ${e.localizedMessage}" }
                     }
                 }
-                LaunchedEffect(Unit) {
-                    val sharedImage = if (intent?.action == Intent.ACTION_SEND && intent?.type?.startsWith("image/") == true) {
-                        @Suppress("DEPRECATION")
-                        intent?.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)
-                    } else null
-                    if (sharedImage != null) {
-                        busy = true
-                        try {
-                            recognizer.process(InputImage.fromFilePath(this@MainActivity, sharedImage))
-                                .addOnSuccessListener { result ->
-                                    question = result.text
-                                    answer = if (result.text.isBlank()) "No readable English text found. You can paste text manually." else "Shared image OCR complete. Review the extracted text before analyzing."
-                                    busy = false
-                                }
-                                .addOnFailureListener { e ->
-                                    answer = "Could not read shared image: ${e.localizedMessage ?: "unknown error"}"
-                                    busy = false
-                                }
-                        } catch (e: Exception) {
-                            answer = "Could not open shared image: ${e.localizedMessage ?: "unknown error"}"
-                            busy = false
+                Column(
+                    Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    Text("Jash AI", style = MaterialTheme.typography.headlineLarge)
+                    Text("Live Screen Reader", style = MaterialTheme.typography.titleLarge)
+                    Text("Share your screen with Android's permission dialog. The app reads text temporarily on-device; it does not save a video.")
+                    Button(onClick = { captureLauncher.launch(projectionManager.createScreenCaptureIntent()) }, enabled = !sharing, modifier = Modifier.fillMaxWidth()) {
+                        Text(if (sharing) "Screen sharing active" else "Start live screen sharing")
+                    }
+                    OutlinedButton(onClick = {
+                        startService(Intent(this@MainActivity, LiveCaptureService::class.java).setAction(LiveCaptureService.ACTION_STOP))
+                        sharing = false
+                        status = "Screen sharing stopped."
+                    }, enabled = sharing, modifier = Modifier.fillMaxWidth()) { Text("Stop sharing") }
+                    ElevatedCard(Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("Latest visible text", style = MaterialTheme.typography.titleMedium)
+                            Text(latestLiveText)
+                            Text("Two-finger tap the panel below to read the latest text aloud.", style = MaterialTheme.typography.bodySmall)
                         }
                     }
-                }
-                Scaffold { padding ->
-                    Column(
-                        modifier = Modifier.padding(padding).fillMaxSize().padding(18.dp).verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Text("Jash AI Screen Assistant", style = MaterialTheme.typography.headlineSmall)
-                        Text("Ask about text and questions you choose to share", style = MaterialTheme.typography.titleMedium)
-                        Text("Import a screenshot, share selected text from another app, or paste a question. You control what is sent for analysis.")
-                        OutlinedTextField(
-                            value = apiBase, onValueChange = { apiBase = it.trimEnd('/') },
-                            label = { Text("Backend URL") }, modifier = Modifier.fillMaxWidth(), singleLine = true
-                        )
-                        OutlinedButton(onClick = { picker.launch("image/*") }, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
-                            Text("Import question screenshot")
-                        }
-                        Text("Current OCR supports printed English. Telugu text can be pasted or shared; Telugu-script image OCR is still being added.")
-                        OutlinedTextField(
-                            value = question, onValueChange = { question = it },
-                            label = { Text("Practice question / OCR text") },
-                            modifier = Modifier.fillMaxWidth(), minLines = 5
-                        )
-                        Button(
-                            onClick = {
-                                if (question.isBlank() || busy) {
-                                    answer = "Enter or import a practice question first."
-                                } else {
-                                    busy = true
-                                    answer = "Analyzing practice question…"
-                                    val endpoint = apiBase.trim().trimEnd('/') + "/api/practice/solve"
-                                    val prompt = question
-                                    worker.execute {
-                                        val result = try {
-                                            val connection = (URL(endpoint).openConnection() as HttpURLConnection).apply {
-                                                requestMethod = "POST"
-                                                connectTimeout = 12000
-                                                readTimeout = 30000
-                                                doOutput = true
-                                                setRequestProperty("Content-Type", "application/json")
-                                            }
-                                            OutputStreamWriter(connection.outputStream).use {
-                                                it.write(JSONObject().put("question", prompt).toString())
-                                            }
-                                            val stream = if (connection.responseCode in 200..299) connection.inputStream else connection.errorStream
-                                            val body = stream.bufferedReader().use { it.readText() }
-                                            if (connection.responseCode !in 200..299) {
-                                                "Server error: ${JSONObject(body).optString("error", "HTTP ${connection.responseCode}")}"
-                                            } else {
-                                                val json = JSONObject(body)
-                                                "Answer: ${json.optString("answer", "UNCERTAIN")}\nConfidence: ${json.optDouble("confidence", 0.0)}\nNote: ${json.optString("verification_note", "")}"
-                                            }.also { connection.disconnect() }
-                                        } catch (e: Exception) {
-                                            "Could not reach backend. Check the URL and server. ${e.localizedMessage ?: ""}"
-                                        }
-                                        runOnUiThread { answer = result; busy = false }
-                                    }
+                    Box(
+                        Modifier.fillMaxWidth().heightIn(min = 110.dp).pointerInput(latestLiveText) {
+                            awaitEachGesture {
+                                awaitFirstDown(requireUnconsumed = false)
+                                var pointersSeen = 1
+                                var finished = false
+                                while (!finished) {
+                                    val event = awaitPointerEvent()
+                                    pointersSeen = maxOf(pointersSeen, event.changes.count { it.pressed })
+                                    if (event.changes.none { it.pressed }) finished = true
                                 }
-                            },
-                            enabled = !busy,
-                            modifier = Modifier.fillMaxWidth()
-                        ) { Text(if (busy) "Working…" else "Analyze practice question") }
-                        if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
-                        ElevatedCard(Modifier.fillMaxWidth()) {
-                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text("Result", style = MaterialTheme.typography.titleMedium)
-                                Text(answer)
+                                if (pointersSeen >= 2) {
+                                    val text = latestLiveText
+                                    if (text.isNotBlank()) tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "jash-live-read")
+                                }
                             }
+                        },
+                        contentAlignment = androidx.compose.ui.Alignment.Center
+                    ) {
+                        Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = MaterialTheme.shapes.large) {
+                            Text("TWO-FINGER TAP TO READ ALOUD", Modifier.padding(24.dp), style = MaterialTheme.typography.titleMedium)
                         }
-                        Text("This version analyzes content you explicitly import or share. It does not silently monitor other apps. Always verify AI output.")
                     }
+                    Text("Image import (manual)", style = MaterialTheme.typography.titleMedium)
+                    OutlinedButton(onClick = { picker.launch("image/*") }, modifier = Modifier.fillMaxWidth()) { Text("Choose screenshot or image") }
+                    OutlinedTextField(value = importedText, onValueChange = { importedText = it }, label = { Text("Extracted / pasted text") }, minLines = 4, modifier = Modifier.fillMaxWidth())
+                    Text(status, style = MaterialTheme.typography.bodySmall)
+                    Text("Live capture requires Android's visible sharing permission and ongoing notification. Two-finger gesture is supported inside this app's reader panel; it does not secretly intercept touches in other apps.")
                 }
             }
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        val filter = IntentFilter(LiveCaptureService.ACTION_TEXT)
+        if (Build.VERSION.SDK_INT >= 33) registerReceiver(liveReceiver, filter, RECEIVER_NOT_EXPORTED) else @Suppress("DEPRECATION") registerReceiver(liveReceiver, filter)
+    }
+
+    override fun onStop() {
+        try { unregisterReceiver(liveReceiver) } catch (_: Exception) {}
+        super.onStop()
+    }
+
+    override fun onInit(status: Int) { if (status == TextToSpeech.SUCCESS) tts?.language = Locale.getDefault() }
     override fun onDestroy() {
         recognizer.close()
-        worker.shutdown()
+        tts?.stop()
+        tts?.shutdown()
         super.onDestroy()
     }
 }
