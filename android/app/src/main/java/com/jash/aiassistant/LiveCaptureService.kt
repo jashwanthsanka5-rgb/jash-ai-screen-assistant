@@ -118,6 +118,9 @@ class LiveCaptureService : Service() {
     }
 
     private fun sendText(value: String) {
+        // Keep the newest OCR result even while the Activity is backgrounded.
+        getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit().putString(PREF_LATEST_TEXT, value).apply()
         sendBroadcast(Intent(ACTION_TEXT).setPackage(packageName).putExtra(EXTRA_TEXT, value))
     }
 
@@ -159,6 +162,8 @@ class LiveCaptureService : Service() {
         const val ACTION_TEXT = "com.jash.aiassistant.LIVE_TEXT"
         const val ACTION_STOP = "com.jash.aiassistant.STOP_CAPTURE"
         const val EXTRA_TEXT = "live_text"
+        const val PREFS_NAME = "jash_screen_capture"
+        const val PREF_LATEST_TEXT = "latest_text"
         const val EXTRA_RESULT_CODE = "result_code"
         const val EXTRA_RESULT_DATA = "result_data"
         private const val CHANNEL_ID = "jash_live_capture"
